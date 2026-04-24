@@ -1,5 +1,6 @@
 // ─── Config & State ──────────────────────────────────────────────────────────
-const API = '';
+// Perbaikan: Menggunakan window.location.origin agar otomatis menggunakan HTTPS domain kamu
+const API = window.location.origin; 
 let authToken = localStorage.getItem('tg_auth_token') || '';
 let wsConn = null;
 let wsRetryTimer = null;
@@ -20,11 +21,17 @@ async function api(method, path, body = null, isFormData = false) {
   } else if (body && isFormData) {
     opts.body = body;
   }
-  const res = await fetch(API + path, opts);
-  if (res.status === 401) { logout(); return null; }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || data.error || 'Request failed');
-  return data;
+  
+  try {
+    const res = await fetch(API + path, opts);
+    if (res.status === 401) { logout(); return null; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || data.error || 'Request failed');
+    return data;
+  } catch (err) {
+    console.error(`API Error (${path}):`, err);
+    throw err;
+  }
 }
 
 // ─── Toast Notifications ──────────────────────────────────────────────────────
@@ -34,9 +41,13 @@ function toast(message, type = 'info', duration = 4000) {
   div.className = `toast ${type}`;
   div.innerHTML = `<span style="font-size:16px">${icons[type]}</span><span>${message}</span>`;
   const c = document.getElementById('toast-container');
-  c.appendChild(div);
-  setTimeout(() => { div.style.opacity = '0'; div.style.transform = 'translateX(100%)';
-    div.style.transition = '0.3s'; setTimeout(() => div.remove(), 300); }, duration);
+  if (c) c.appendChild(div);
+  setTimeout(() => { 
+    div.style.opacity = '0'; 
+    div.style.transform = 'translateX(100%)';
+    div.style.transition = '0.3s'; 
+    setTimeout(() => div.remove(), 300); 
+  }, duration);
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -66,8 +77,11 @@ async function login() {
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     initApp();
-  } catch(e) { toast(e.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = 'Masuk ke Dashboard'; }
+  } catch(e) { 
+    toast(e.message, 'error'); 
+  } finally { 
+    btn.disabled = false; btn.textContent = 'Masuk ke Dashboard'; 
+  }
 }
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
@@ -76,8 +90,10 @@ function connectWS() {
   wsConn = new WebSocket(`${protocol}//${location.host}/ws/logs`);
 
   wsConn.onopen = () => {
-    document.querySelector('.ws-dot').classList.add('connected');
-    document.querySelector('.ws-status span:last-child').textContent = 'Live Connected';
+    const dot = document.querySelector('.ws-dot');
+    const label = document.querySelector('.ws-status span:last-child');
+    if (dot) dot.classList.add('connected');
+    if (label) label.textContent = 'Live Connected';
     if (wsRetryTimer) { clearTimeout(wsRetryTimer); wsRetryTimer = null; }
   };
 
@@ -88,8 +104,10 @@ function connectWS() {
   };
 
   wsConn.onclose = () => {
-    document.querySelector('.ws-dot').classList.remove('connected');
-    document.querySelector('.ws-status span:last-child').textContent = 'Reconnecting...';
+    const dot = document.querySelector('.ws-dot');
+    const label = document.querySelector('.ws-status span:last-child');
+    if (dot) dot.classList.remove('connected');
+    if (label) label.textContent = 'Reconnecting...';
     wsRetryTimer = setTimeout(connectWS, 3000);
   };
 
@@ -99,12 +117,10 @@ function connectWS() {
 function handleWSMessage(msg) {
   if (msg.type === 'log') {
     addLiveLog(msg);
-    // Update badge
     const badge = document.getElementById('logs-badge');
     if (badge) { badge.textContent = parseInt(badge.textContent || '0') + 1; }
   }
   if (msg.type === 'account_status') {
-    // Refresh akun di background
     setTimeout(loadAccounts, 500);
   }
   if (msg.type === 'campaign_start' || msg.type === 'campaign_done') {
@@ -136,7 +152,6 @@ function addLiveLog(msg) {
     <span class="log-msg">Acc#${msg.account_id} → Grp#${msg.group_id}${msg.error ? ' | ' + msg.error : ''}</span>
   `;
   terminal.prepend(div);
-  // Trim
   while (terminal.children.length > MAX_LIVE_LOGS) {
     terminal.removeChild(terminal.lastChild);
   }
@@ -156,9 +171,9 @@ function navigate(page) {
     groups: 'Manajemen Grup', templates: 'Template Pesan',
     campaigns: 'Campaign Manager', logs: 'Log Aktivitas'
   };
-  document.getElementById('topbar-title').textContent = titles[page] || page;
+  const topTitle = document.getElementById('topbar-title');
+  if (topTitle) topTitle.textContent = titles[page] || page;
 
-  // Load data for page
   if (page === 'dashboard') updateStats();
   if (page === 'accounts') loadAccounts();
   if (page === 'groups') loadGroups();
@@ -183,8 +198,7 @@ async function updateStats() {
     allCampaigns = campaigns || [];
 
     const activeAccs = accounts.filter(a => a.is_online).length;
-    const runningCamps = campaigns.filter(c => c.status === 'running').length;
-
+    
     setEl('stat-accounts', `${activeAccs}/${accounts.length}`);
     setEl('stat-groups', allGroups.filter(g => g.is_active).length);
     setEl('stat-campaigns', allCampaigns.length);
@@ -192,7 +206,7 @@ async function updateStats() {
 
     renderRecentCampaigns();
     renderAccountSummary();
-  } catch(e) { console.error('Stats error:', e); }
+  } catch(e) { console.error('Stats update failed:', e); }
 }
 
 function renderRecentCampaigns() {
@@ -224,7 +238,6 @@ function renderAccountSummary() {
   const shown = allAccounts.slice(0, 6);
   el.innerHTML = shown.map(a => {
     const pct = a.daily_limit > 0 ? Math.round((a.messages_sent_today / a.daily_limit) * 100) : 0;
-    const color = a.is_online ? 'blue' : 'muted';
     return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(99,132,255,0.07)">
       <div class="account-avatar" style="width:36px;height:36px;font-size:14px">${a.phone.slice(-4)}</div>
       <div style="flex:1;min-width:0">
@@ -299,17 +312,15 @@ function renderAccounts() {
   }).join('');
 }
 
-// Login flow state
+// ─── Login Flow ───────────────────────────────────────────────────────────────
 let loginStep = 1;
 let loginPhone = '';
 
 function openAddAccount() {
-  loginStep = 1;
-  loginPhone = '';
+  loginStep = 1; loginPhone = '';
   document.getElementById('login-step-1').style.display = '';
   document.getElementById('login-step-2').style.display = 'none';
   document.getElementById('login-step-3').style.display = 'none';
-  document.getElementById('modal-add-account').querySelector('.modal-title').textContent = 'Tambah Akun Telegram';
   updateLoginStepIndicator();
   openModal('modal-add-account');
 }
@@ -317,9 +328,9 @@ function openAddAccount() {
 function updateLoginStepIndicator() {
   document.querySelectorAll('.step-dot').forEach((dot, i) => {
     dot.classList.remove('active', 'done');
-    if (i + 1 < loginStep) dot.classList.add('done'), dot.textContent = '✓';
-    else if (i + 1 === loginStep) dot.classList.add('active'), dot.textContent = i + 1;
-    else dot.textContent = i + 1;
+    if (i + 1 < loginStep) { dot.classList.add('done'); dot.textContent = '✓'; }
+    else if (i + 1 === loginStep) { dot.classList.add('active'); dot.textContent = i + 1; }
+    else { dot.textContent = i + 1; }
   });
 }
 
@@ -346,23 +357,20 @@ async function verifyOTP() {
   const btn = document.getElementById('btn-verify-otp');
   btn.disabled = true; btn.textContent = 'Memverifikasi...';
   try {
-    const res = await api('POST', '/api/accounts/verify-code', { phone: loginPhone, code, password: password || null });
-    if (res) {
-      toast('Akun berhasil ditambahkan!', 'success');
-      loginStep = 3;
-      document.getElementById('login-step-2').style.display = 'none';
-      document.getElementById('login-step-3').style.display = '';
-      updateLoginStepIndicator();
-      document.getElementById('login-success-phone').textContent = loginPhone;
-      loadAccounts();
-    }
+    await api('POST', '/api/accounts/verify-code', { phone: loginPhone, code, password: password || null });
+    toast('Akun berhasil ditambahkan!', 'success');
+    loginStep = 3;
+    document.getElementById('login-step-2').style.display = 'none';
+    document.getElementById('login-step-3').style.display = '';
+    updateLoginStepIndicator();
+    document.getElementById('login-success-phone').textContent = loginPhone;
+    loadAccounts();
   } catch(e) {
     if (e.message.includes('2FA_REQUIRED')) {
       document.getElementById('2fa-section').style.display = '';
-      toast('Akun ini menggunakan verifikasi 2FA. Masukkan password.', 'warning');
+      toast('Akun ini menggunakan 2FA. Masukkan password.', 'warning');
     } else { toast(e.message, 'error'); }
-  }
-  finally { btn.disabled = false; btn.textContent = 'Verifikasi'; }
+  } finally { btn.disabled = false; btn.textContent = 'Verifikasi'; }
 }
 
 async function connectAccount(id) {
@@ -376,13 +384,13 @@ async function connectAccount(id) {
 async function disconnectAccount(id) {
   try {
     await api('POST', `/api/accounts/${id}/disconnect`);
-    toast('Akun disconnected', 'info');
+    toast('Akun terputus', 'info');
     loadAccounts();
   } catch(e) { toast(e.message, 'error'); }
 }
 
 async function deleteAccount(id) {
-  if (!confirm('Hapus akun ini? Session akan dihapus.')) return;
+  if (!confirm('Hapus akun ini? Session akan dihapus secara permanen.')) return;
   try {
     await api('DELETE', `/api/accounts/${id}`);
     toast('Akun dihapus', 'success');
@@ -398,9 +406,7 @@ async function resetDaily(id) {
   } catch(e) { toast(e.message, 'error'); }
 }
 
-let detectAccountId = null;
 async function detectGroups(id) {
-  detectAccountId = id;
   const el = document.getElementById('detect-list');
   el.innerHTML = '<div style="text-align:center;padding:20px"><span class="spinner"></span> Mendeteksi grup...</div>';
   openModal('modal-detect-groups');
@@ -414,8 +420,7 @@ async function detectGroups(id) {
           <div style="font-weight:600;font-size:13px">${g.title}</div>
           <div style="font-size:11px;color:var(--text-muted)">${g.username ? '@' + g.username : g.group_id} • ${g.member_count} anggota</div>
         </label>
-      </div>`).join('') :
-      '<div class="empty-state"><div class="empty-icon">💬</div><div>Tidak ada grup ditemukan</div></div>';
+      </div>`).join('') : '<div class="empty-state">Tidak ada grup ditemukan</div>';
   } catch(e) { el.innerHTML = `<div style="color:var(--error);padding:16px">${e.message}</div>`; }
 }
 
@@ -435,9 +440,7 @@ async function importSelectedGroups() {
 async function loadGroups() {
   try {
     const groups = await api('GET', '/api/groups');
-    if (!groups) return;
-    allGroups = groups;
-    renderGroupsTable();
+    if (groups) { allGroups = groups; renderGroupsTable(); }
   } catch(e) { toast(e.message, 'error'); }
 }
 
@@ -448,7 +451,7 @@ function renderGroupsTable() {
   const shown = allGroups.filter(g => g.title.toLowerCase().includes(filtered) || g.group_id.includes(filtered));
 
   if (!shown.length) {
-    el.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">💬</div><div class="empty-title">Belum ada grup</div></div></td></tr>`;
+    el.innerHTML = `<tr><td colspan="7"><div class="empty-state">Belum ada grup</div></td></tr>`;
     return;
   }
   el.innerHTML = shown.map(g => `<tr>
@@ -465,18 +468,12 @@ function renderGroupsTable() {
   </tr>`).join('');
 }
 
-function openAddGroup() {
-  document.getElementById('form-add-group').reset();
-  openModal('modal-add-group');
-}
-
 async function saveGroup() {
   const body = {
     group_id: document.getElementById('grp-id').value.trim(),
     title: document.getElementById('grp-title').value.trim(),
     username: document.getElementById('grp-username').value.trim() || null,
     member_count: parseInt(document.getElementById('grp-members').value) || 0,
-    category: document.getElementById('grp-category').value.trim() || null,
   };
   if (!body.group_id || !body.title) return toast('Group ID dan nama wajib diisi', 'warning');
   try {
@@ -507,9 +504,7 @@ async function deleteGroup(id) {
 async function loadTemplates() {
   try {
     const templates = await api('GET', '/api/templates');
-    if (!templates) return;
-    allTemplates = templates;
-    renderTemplatesGrid();
+    if (templates) { allTemplates = templates; renderTemplatesGrid(); }
   } catch(e) { toast(e.message, 'error'); }
 }
 
@@ -517,11 +512,7 @@ function renderTemplatesGrid() {
   const el = document.getElementById('templates-grid');
   if (!el) return;
   if (!allTemplates.length) {
-    el.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-      <div class="empty-icon">📝</div>
-      <div class="empty-title">Belum ada template</div>
-      <div class="empty-desc">Buat template pesan pertamamu</div>
-    </div>`;
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Belum ada template pesan</div>';
     return;
   }
   el.innerHTML = allTemplates.map(t => `<div class="section-card">
@@ -533,38 +524,18 @@ function renderTemplatesGrid() {
       </div>
     </div>
     <div class="section-body">
-      <div style="background:var(--bg-secondary);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:120px;overflow:hidden">${escHtml(t.content)}</div>
-      ${t.media_path ? `<div style="margin-bottom:10px"><span class="badge badge-info">🖼 Media: ${t.media_path.split('/').pop()}</span></div>` : ''}
-      ${t.variables.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${t.variables.map(v => `<span class="badge badge-purple">{${v}}</span>`).join('')}</div>` : ''}
+      <div style="background:var(--bg-secondary);border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;white-space:pre-wrap">${escHtml(t.content)}</div>
+      ${t.media_path ? `<div style="margin-bottom:10px"><span class="badge badge-info">🖼 Media Aktif</span></div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${t.variables.map(v => `<span class="badge badge-purple">{${v}}</span>`).join('')}</div>
     </div>
   </div>`).join('');
 }
 
-function openAddTemplate() {
-  document.getElementById('form-template').reset();
-  document.getElementById('template-id-hidden').value = '';
-  document.getElementById('template-vars-preview').innerHTML = '';
-  document.getElementById('modal-template-title').textContent = 'Buat Template Baru';
-  openModal('modal-add-template');
-}
-
-function editTemplate(id) {
-  const t = allTemplates.find(t => t.id === id);
-  if (!t) return;
-  document.getElementById('template-id-hidden').value = id;
-  document.getElementById('tmpl-name').value = t.name;
-  document.getElementById('tmpl-content').value = t.content;
-  document.getElementById('tmpl-media').value = t.media_path || '';
-  document.getElementById('modal-template-title').textContent = 'Edit Template';
-  onTemplateContentChange();
-  openModal('modal-add-template');
-}
-
 function onTemplateContentChange() {
   const content = document.getElementById('tmpl-content').value;
-  const vars = [...new Set(content.match(/\{(\w+)\}/g)?.map(v => v.slice(1,-1)) || [])].filter(v => !['date','time','datetime'].includes(v));
+  const vars = [...new Set(content.match(/\{(\w+)\}/g)?.map(v => v.slice(1,-1)) || [])];
   const el = document.getElementById('template-vars-preview');
-  el.innerHTML = vars.length ? vars.map(v => `<span class="badge badge-purple">{${v}}</span>`).join(' ') : '<span style="color:var(--text-muted);font-size:12px">Tidak ada variabel kustom</span>';
+  if (el) el.innerHTML = vars.map(v => `<span class="badge badge-purple">{${v}}</span>`).join(' ') || '<span style="font-size:12px;color:var(--text-muted)">Tidak ada variabel</span>';
 }
 
 async function saveTemplate() {
@@ -574,41 +545,12 @@ async function saveTemplate() {
     content: document.getElementById('tmpl-content').value.trim(),
     media_path: document.getElementById('tmpl-media').value.trim() || null,
   };
-  if (!body.name || !body.content) return toast('Nama dan isi template wajib diisi', 'warning');
   try {
-    if (id) {
-      await api('PUT', `/api/templates/${id}`, body);
-      toast('Template diperbarui', 'success');
-    } else {
-      const res = await api('POST', '/api/templates', body);
-      toast('Template dibuat. Variabel: ' + (res.variables.join(', ') || 'tidak ada'), 'success');
-    }
+    if (id) await api('PUT', `/api/templates/${id}`, body);
+    else await api('POST', '/api/templates', body);
+    toast('Template disimpan', 'success');
     closeModal('modal-add-template');
     loadTemplates();
-  } catch(e) { toast(e.message, 'error'); }
-}
-
-async function previewTemplate() {
-  const content = document.getElementById('tmpl-content').value;
-  if (!content) return;
-  try {
-    const res = await api('POST', '/api/templates/preview', { content, variable_data: {
-      name: 'Budi', promo: 'DISC50', custom_text: 'Promo Hari Ini'
-    }});
-    document.getElementById('preview-result').textContent = res.rendered;
-    document.getElementById('preview-box').style.display = '';
-  } catch(e) { toast(e.message, 'error'); }
-}
-
-async function uploadTemplateMedia() {
-  const file = document.getElementById('media-file').files[0];
-  if (!file) return toast('Pilih file terlebih dahulu', 'warning');
-  const fd = new FormData();
-  fd.append('file', file);
-  try {
-    const res = await api('POST', '/api/templates/upload-media', fd, true);
-    document.getElementById('tmpl-media').value = res.path;
-    toast('Media diupload: ' + res.filename, 'success');
   } catch(e) { toast(e.message, 'error'); }
 }
 
@@ -629,8 +571,9 @@ async function loadCampaigns() {
       api('GET', '/api/templates'),
       api('GET', '/api/groups'),
     ]);
-    if (!campaigns) return;
-    allCampaigns = campaigns; allTemplates = templates; allGroups = groups;
+    allCampaigns = campaigns || [];
+    allTemplates = templates || [];
+    allGroups = groups || [];
     renderCampaigns();
   } catch(e) { toast(e.message, 'error'); }
 }
@@ -639,214 +582,38 @@ function renderCampaigns() {
   const el = document.getElementById('campaigns-list');
   if (!el) return;
   if (!allCampaigns.length) {
-    el.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">🚀</div>
-      <div class="empty-title">Belum ada campaign</div>
-      <div class="empty-desc">Buat campaign pertama untuk mulai distribusi pesan</div>
-    </div>`;
+    el.innerHTML = '<div class="empty-state">Belum ada campaign aktif</div>';
     return;
   }
   el.innerHTML = allCampaigns.map(c => {
-    const tmpl = allTemplates.find(t => t.id === c.template_id);
-    const statusClass = {running:'success',paused:'warning',stopped:'error',completed:'info',draft:'muted'}[c.status]||'muted';
-    const statusIcon = {running:'▶',paused:'⏸',stopped:'■',completed:'✓',draft:'📋'}[c.status]||'•';
+    const statusClass = {running:'success', paused:'warning', stopped:'error', completed:'info'}[c.status] || 'muted';
     return `<div class="section-card" style="margin-bottom:12px">
       <div class="section-header">
-        <div>
-          <div class="section-title">${statusIcon} ${c.name}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:3px">
-            Template: ${tmpl?.name || '—'} • ${c.target_groups.length} grup target • Delay: ${c.delay_min}-${c.delay_max}s
-          </div>
-        </div>
+        <div class="section-title">🚀 ${c.name}</div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="badge badge-${statusClass}">${c.status}</span>
-          <div style="display:flex;gap:6px">
-            ${c.status === 'draft' || c.status === 'stopped' || c.status === 'completed' ?
-              `<button class="btn btn-success btn-sm" onclick="startCampaign(${c.id})">▶ Mulai</button>` : ''}
-            ${c.status === 'running' ?
-              `<button class="btn btn-warning btn-sm" onclick="pauseCampaign(${c.id})">⏸ Pause</button>
-               <button class="btn btn-danger btn-sm" onclick="stopCampaign(${c.id})">■ Stop</button>` : ''}
-            ${c.status === 'paused' ?
-              `<button class="btn btn-success btn-sm" onclick="resumeCampaign(${c.id})">▶ Resume</button>
-               <button class="btn btn-danger btn-sm" onclick="stopCampaign(${c.id})">■ Stop</button>` : ''}
-            ${c.status !== 'running' ?
-              `<button class="btn btn-secondary btn-sm" onclick="editCampaign(${c.id})">✏️</button>
-               <button class="btn btn-danger btn-sm btn-icon" onclick="deleteCampaign(${c.id})">🗑</button>` : ''}
+          <div style="display:flex;gap:4px">
+            ${c.status === 'running' ? `<button class="btn btn-warning btn-sm" onclick="pauseCampaign(${c.id})">⏸</button>` : `<button class="btn btn-success btn-sm" onclick="startCampaign(${c.id})">▶</button>`}
+            <button class="btn btn-danger btn-sm" onclick="stopCampaign(${c.id})">■</button>
+            <button class="btn btn-danger btn-sm btn-icon" onclick="deleteCampaign(${c.id})">🗑</button>
           </div>
-        </div>
-      </div>
-      <div class="section-body" style="display:flex;gap:16px;flex-wrap:wrap">
-        <div style="display:flex;gap:16px">
-          <div class="account-stat"><div class="account-stat-val">${c.target_groups.length}</div><div class="account-stat-lbl">Target Grup</div></div>
-          <div class="account-stat"><div class="account-stat-val">${c.delay_min}-${c.delay_max}s</div><div class="account-stat-lbl">Delay</div></div>
-          <div class="account-stat"><div class="account-stat-val">${c.parallel_mode ? '⚡' : '→'}</div><div class="account-stat-lbl">${c.parallel_mode ? 'Paralel' : 'Sequential'}</div></div>
-          <div class="account-stat"><div class="account-stat-val">${c.prevent_duplicate ? '🛡' : '—'}</div><div class="account-stat-lbl">No Duplicate</div></div>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-function openAddCampaign() {
-  document.getElementById('camp-id-hidden').value = '';
-  document.getElementById('form-campaign').reset();
-  renderTemplateOptions();
-  renderGroupCheckboxes();
-  renderVarFields();
-  document.getElementById('delay-min-val').textContent = '5';
-  document.getElementById('delay-max-val').textContent = '20';
-  document.getElementById('modal-camp-title').textContent = 'Buat Campaign Baru';
-  openModal('modal-add-campaign');
-}
-
-function editCampaign(id) {
-  const c = allCampaigns.find(c => c.id === id);
-  if (!c) return;
-  document.getElementById('camp-id-hidden').value = id;
-  document.getElementById('camp-name').value = c.name;
-  document.getElementById('camp-delay-min').value = c.delay_min;
-  document.getElementById('camp-delay-max').value = c.delay_max;
-  document.getElementById('delay-min-val').textContent = c.delay_min;
-  document.getElementById('delay-max-val').textContent = c.delay_max;
-  document.getElementById('camp-parallel').checked = c.parallel_mode;
-  document.getElementById('camp-no-dup').checked = c.prevent_duplicate;
-  renderTemplateOptions(c.template_id);
-  renderGroupCheckboxes(c.target_groups);
-  // Render var fields after template selected
-  setTimeout(() => {
-    renderVarFields(c.variable_data);
-  }, 100);
-  document.getElementById('modal-camp-title').textContent = 'Edit Campaign';
-  openModal('modal-add-campaign');
-}
-
-function renderTemplateOptions(selectedId = null) {
-  const el = document.getElementById('camp-template');
-  el.innerHTML = '<option value="">-- Pilih Template --</option>' +
-    allTemplates.filter(t => t.is_active).map(t =>
-      `<option value="${t.id}" ${t.id === selectedId ? 'selected' : ''}>${t.name}</option>`
-    ).join('');
-  el.onchange = () => renderVarFields();
-}
-
-function renderGroupCheckboxes(selectedIds = []) {
-  const el = document.getElementById('camp-groups-list');
-  if (!el) return;
-  const active = allGroups.filter(g => g.is_active);
-  if (!active.length) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px">Belum ada grup aktif. Tambah grup dulu.</div>';
-    return;
-  }
-  el.innerHTML = active.map(g => `
-    <div class="detect-item">
-      <input type="checkbox" id="cg-${g.id}" value="${g.id}" ${selectedIds.includes(g.id) ? 'checked' : ''}>
-      <label for="cg-${g.id}" style="flex:1;cursor:pointer;font-size:13px">
-        ${g.title} <span style="color:var(--text-muted)">(${g.member_count?.toLocaleString() || 0} anggota)</span>
-      </label>
-    </div>`).join('');
-}
-
-function selectAllGroups() {
-  document.querySelectorAll('#camp-groups-list input[type=checkbox]').forEach(cb => cb.checked = true);
-}
-
-function renderVarFields(existingData = {}) {
-  const tmplId = parseInt(document.getElementById('camp-template').value);
-  const tmpl = allTemplates.find(t => t.id === tmplId);
-  const el = document.getElementById('camp-var-fields');
-  if (!tmpl || !tmpl.variables.length) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Template ini tidak memiliki variabel kustom.</div>';
-    return;
-  }
-  el.innerHTML = tmpl.variables.map(v => `
-    <div class="form-group">
-      <label class="form-label">{${v}}</label>
-      <input class="form-input" id="var-${v}" placeholder="Nilai untuk {${v}}" value="${existingData[v] || ''}">
-    </div>`).join('');
-}
-
-async function saveCampaign() {
-  const id = document.getElementById('camp-id-hidden').value;
-  const tmplId = parseInt(document.getElementById('camp-template').value);
-  if (!tmplId) return toast('Pilih template terlebih dahulu', 'warning');
-
-  const selectedGroups = Array.from(document.querySelectorAll('#camp-groups-list input:checked')).map(cb => parseInt(cb.value));
-  if (!selectedGroups.length) return toast('Pilih minimal 1 grup target', 'warning');
-
-  const tmpl = allTemplates.find(t => t.id === tmplId);
-  const varData = {};
-  if (tmpl) {
-    tmpl.variables.forEach(v => {
-      const val = document.getElementById(`var-${v}`)?.value?.trim();
-      if (val) varData[v] = val;
-    });
-  }
-
-  const body = {
-    name: document.getElementById('camp-name').value.trim(),
-    template_id: tmplId,
-    target_groups: selectedGroups,
-    variable_data: varData,
-    delay_min: parseInt(document.getElementById('camp-delay-min').value),
-    delay_max: parseInt(document.getElementById('camp-delay-max').value),
-    parallel_mode: document.getElementById('camp-parallel').checked,
-    prevent_duplicate: document.getElementById('camp-no-dup').checked,
-  };
-  if (!body.name) return toast('Nama campaign wajib diisi', 'warning');
-
-  try {
-    if (id) {
-      await api('PUT', `/api/campaigns/${id}`, body);
-      toast('Campaign diperbarui', 'success');
-    } else {
-      await api('POST', '/api/campaigns', body);
-      toast('Campaign dibuat!', 'success');
-    }
-    closeModal('modal-add-campaign');
-    loadCampaigns();
-  } catch(e) { toast(e.message, 'error'); }
-}
-
 async function startCampaign(id) {
-  try {
-    await api('POST', `/api/campaigns/${id}/start`);
-    toast('Campaign dimulai!', 'success');
-    setTimeout(loadCampaigns, 500);
-  } catch(e) { toast(e.message, 'error'); }
+  try { await api('POST', `/api/campaigns/${id}/start`); toast('Campaign dimulai!', 'success'); loadCampaigns(); } catch(e) { toast(e.message, 'error'); }
 }
 
 async function stopCampaign(id) {
-  if (!confirm('Stop campaign ini?')) return;
-  try {
-    await api('POST', `/api/campaigns/${id}/stop`);
-    toast('Campaign dihentikan', 'warning');
-    setTimeout(loadCampaigns, 500);
-  } catch(e) { toast(e.message, 'error'); }
-}
-
-async function pauseCampaign(id) {
-  try {
-    await api('POST', `/api/campaigns/${id}/pause`);
-    toast('Campaign dipause', 'warning');
-    setTimeout(loadCampaigns, 500);
-  } catch(e) { toast(e.message, 'error'); }
-}
-
-async function resumeCampaign(id) {
-  try {
-    await api('POST', `/api/campaigns/${id}/resume`);
-    toast('Campaign dilanjutkan', 'success');
-    setTimeout(loadCampaigns, 500);
-  } catch(e) { toast(e.message, 'error'); }
+  try { await api('POST', `/api/campaigns/${id}/stop`); toast('Campaign dihentikan', 'warning'); loadCampaigns(); } catch(e) { toast(e.message, 'error'); }
 }
 
 async function deleteCampaign(id) {
-  if (!confirm('Hapus campaign ini beserta semua log-nya?')) return;
-  try {
-    await api('DELETE', `/api/campaigns/${id}`);
-    toast('Campaign dihapus', 'success');
-    loadCampaigns();
-  } catch(e) { toast(e.message, 'error'); }
+  if (!confirm('Hapus campaign ini?')) return;
+  try { await api('DELETE', `/api/campaigns/${id}`); toast('Campaign dihapus', 'success'); loadCampaigns(); } catch(e) { toast(e.message, 'error'); }
 }
 
 // ─── Logs ─────────────────────────────────────────────────────────────────────
@@ -856,90 +623,58 @@ async function loadLogs() {
       api('GET', '/api/logs?limit=200'),
       api('GET', '/api/logs/stats'),
     ]);
-    if (!logs) return;
-    allLogs = logs;
-    renderLogsTable(logs);
-    renderLogStats(stats);
+    if (logs) renderLogsTable(logs);
+    if (stats) {
+      setEl('log-stat-total', stats.total);
+      setEl('log-stat-success', stats.success);
+      setEl('log-stat-failed', stats.failed);
+      setEl('log-stat-rl', stats.rate_limited);
+    }
   } catch(e) { toast(e.message, 'error'); }
-}
-
-function renderLogStats(stats) {
-  setEl('log-stat-total', stats?.total || 0);
-  setEl('log-stat-success', stats?.success || 0);
-  setEl('log-stat-failed', stats?.failed || 0);
-  setEl('log-stat-rl', stats?.rate_limited || 0);
 }
 
 function renderLogsTable(logs) {
   const el = document.getElementById('logs-tbody');
   if (!el) return;
-  if (!logs.length) {
-    el.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div>Belum ada log</div></div></td></tr>`;
-    return;
-  }
-  const statusClass = { success:'success', failed:'error', rate_limited:'warning', skipped:'muted' };
+  const sc = { success:'success', failed:'error', rate_limited:'warning', skipped:'muted' };
   el.innerHTML = logs.map(l => `<tr>
     <td>${new Date(l.sent_at).toLocaleString('id-ID')}</td>
-    <td>Akun #${l.account_id}</td>
-    <td>Grup #${l.group_id}</td>
-    <td><span class="badge badge-${statusClass[l.status]||'muted'}">${l.status}</span></td>
-    <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted)">${l.error_message || '—'}</td>
+    <td>Acc #${l.account_id}</td>
+    <td>Grp #${l.group_id}</td>
+    <td><span class="badge badge-${sc[l.status]||'muted'}">${l.status}</span></td>
+    <td style="font-size:11px;color:var(--text-muted)">${l.error_message || '—'}</td>
     <td>${l.message_id || '—'}</td>
   </tr>`).join('');
 }
 
-// ─── Modal Helpers ────────────────────────────────────────────────────────────
-function openModal(id) {
-  document.getElementById(id).classList.add('active');
-}
-function closeModal(id) {
-  document.getElementById(id).classList.remove('active');
-}
-// Close on overlay click
-document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-overlay')) {
-    e.target.classList.remove('active');
-  }
-});
-
-// ─── Utility ──────────────────────────────────────────────────────────────────
-function setEl(id, val) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = val;
-}
-
-function escHtml(str) {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id)?.classList.add('active'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('active'); }
+function setEl(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function escHtml(str) { 
+  if (!str) return '';
   const d = document.createElement('div');
   d.appendChild(document.createTextNode(str));
   return d.innerHTML;
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// ─── Initialization ───────────────────────────────────────────────────────────
 function initApp() {
   connectWS();
   navigate('dashboard');
-  // Auto-refresh stats setiap 30 detik
   setInterval(() => {
     if (currentPage === 'dashboard') updateStats();
-    if (currentPage === 'campaigns') loadCampaigns();
   }, 30000);
 }
 
-// Startup
 window.addEventListener('DOMContentLoaded', () => {
   if (authToken) {
-    // Coba auto-login
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     initApp();
-  } else {
-    document.getElementById('app').style.display = 'none';
   }
-
-  // Enter key di login
+  
   document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && document.getElementById('login-page').style.display !== 'none') {
-      login();
-    }
+    if (e.key === 'Enter' && document.getElementById('login-page').style.display !== 'none') login();
   });
 });
