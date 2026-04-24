@@ -1,6 +1,6 @@
 // ─── Config & State ──────────────────────────────────────────────────────────
 // Perbaikan: Menggunakan window.location.origin agar otomatis menggunakan HTTPS domain kamu
-const API = window.location.origin; 
+const API = 'https://jastipclouds.my.id'; 
 let authToken = localStorage.getItem('tg_auth_token') || '';
 let wsConn = null;
 let wsRetryTimer = null;
