@@ -96,15 +96,14 @@ app.include_router(ws.router)
 
 import os
 if os.path.exists("./frontend"):
-    app.mount("/aksesadmin", StaticFiles(directory="./frontend/aksesadmin", html=True), name="admin_system")
-    app.mount("/assets", StaticFiles(directory="./frontend"), name="landing_assets")
+    app.mount("/assets", StaticFiles(directory="./frontend"), name="static")
     
     @app.get("/")
     async def serve_landing():
         return FileResponse("./frontend/index.html")
     
     @app.get("/aksesadmin")
-    async def redirect_admin():
+    async def serve_admin_dashboard():
         return FileResponse("./frontend/aksesadmin/index.html")
 
 
