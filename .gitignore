@@ -1,0 +1,11 @@
+.env
+sessions/
+data/
+media/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.session
+*.session-journal

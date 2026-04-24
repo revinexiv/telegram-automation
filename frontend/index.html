@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TG Auto System — Admin Dashboard</title>
+  <meta name="description" content="Dashboard admin untuk manajemen multi-akun Telegram, distribusi pesan, campaign manager, dan live monitoring.">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+</head>
+<body>
+
+<!-- ─── Toast Container ─────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ─── Login Page ──────────────────────────────────────────── -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-logo">✈️</div>
+      <h1 class="login-title">TG Auto System</h1>
+      <p class="login-sub">Admin Dashboard — Multi Account Manager</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <input class="form-input" id="login-username" type="text" placeholder="admin" value="admin">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" id="login-password" type="password" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary" id="login-btn" style="width:100%;justify-content:center;padding:12px;font-size:14px" onclick="login()">
+      Masuk ke Dashboard
+    </button>
+    <div style="margin-top:16px;text-align:center;font-size:12px;color:var(--text-muted)">
+      Atur kredensial di file <code style="color:var(--accent)">.env</code>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Main App ────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">✈️</div>
+      <div>
+        <div class="logo-text">TG Auto System</div>
+        <div class="logo-sub">Multi Account Manager</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Overview</div>
+      <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </div>
+
+      <div class="nav-section-title">Management</div>
+      <div class="nav-item" data-page="accounts" onclick="navigate('accounts')">
+        <span class="nav-icon">📱</span> Akun Telegram
+      </div>
+      <div class="nav-item" data-page="groups" onclick="navigate('groups')">
+        <span class="nav-icon">💬</span> Grup Target
+      </div>
+      <div class="nav-item" data-page="templates" onclick="navigate('templates')">
+        <span class="nav-icon">📝</span> Template Pesan
+      </div>
+
+      <div class="nav-section-title">Campaign</div>
+      <div class="nav-item" data-page="campaigns" onclick="navigate('campaigns')">
+        <span class="nav-icon">🚀</span> Campaign Manager
+      </div>
+      <div class="nav-item" data-page="logs" onclick="navigate('logs')">
+        <span class="nav-icon">📋</span> Log Aktivitas
+        <span class="nav-badge" id="logs-badge">0</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="ws-status">
+        <div class="ws-dot" id="ws-dot"></div>
+        <span style="font-size:11px">Live Log</span>&nbsp;
+        <span style="font-size:11px">Disconnected</span>
+      </div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:12px" onclick="logout()">🚪 Logout</button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Dashboard Overview</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div id="live-indicator" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--success)" class="pulse-green"></span>
+          System Active
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ─── DASHBOARD PAGE ────────────────────────────────── -->
+      <div class="page active" id="page-dashboard">
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue">📱</div>
+            <div>
+              <div class="stat-value" id="stat-accounts">0/0</div>
+              <div class="stat-label">Akun Online/Total</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon cyan">💬</div>
+            <div>
+              <div class="stat-value" id="stat-groups">0</div>
+              <div class="stat-label">Grup Aktif</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon purple">🚀</div>
+            <div>
+              <div class="stat-value" id="stat-campaigns">0</div>
+              <div class="stat-label">Total Campaign</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">✅</div>
+            <div>
+              <div class="stat-value" id="stat-sent">0</div>
+              <div class="stat-label">Pesan Terkirim</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <!-- Recent Campaigns -->
+          <div class="section-card">
+            <div class="section-header">
+              <div class="section-title">🚀 Campaign Terbaru</div>
+              <button class="btn btn-primary btn-sm" onclick="navigate('campaigns')">Lihat Semua</button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="data-table">
+                <thead><tr><th>Nama</th><th>Status</th><th>Target</th><th>Dibuat</th><th>Aksi</th></tr></thead>
+                <tbody id="recent-campaigns"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Account Summary -->
+          <div class="section-card">
+            <div class="section-header">
+              <div class="section-title">📱 Status Akun</div>
+              <button class="btn btn-primary btn-sm" onclick="navigate('accounts')">Kelola Akun</button>
+            </div>
+            <div class="section-body" id="account-summary"></div>
+          </div>
+        </div>
+
+        <!-- Live Log Terminal (Dashboard) -->
+        <div class="section-card" style="margin-top:20px">
+          <div class="section-header">
+            <div class="section-title">📡 Live Activity Log</div>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('live-terminal').innerHTML=''">🗑 Clear</button>
+          </div>
+          <div class="section-body" style="padding:16px">
+            <div class="log-terminal" id="live-terminal">
+              <div class="log-entry">
+                <span class="log-time">--:--:--</span>
+                <span class="log-status" style="color:var(--text-muted)">SYSTEM</span>
+                <span class="log-msg">Menunggu aktivitas campaign...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── ACCOUNTS PAGE ─────────────────────────────────── -->
+      <div class="page" id="page-accounts">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <div>
+            <h2 style="font-size:20px;font-weight:700">Multi Akun Telegram</h2>
+            <p style="color:var(--text-secondary);font-size:13px;margin-top:3px">
+              Login menggunakan nomor telepon + OTP. Satu API ID untuk semua akun.
+            </p>
+          </div>
+          <button class="btn btn-primary" onclick="openAddAccount()">➕ Tambah Akun</button>
+        </div>
+        <div class="card-grid" id="accounts-grid">
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon"><span class="spinner"></span></div>
+            <div class="empty-title">Memuat akun...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── GROUPS PAGE ───────────────────────────────────── -->
+      <div class="page" id="page-groups">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <div>
+            <h2 style="font-size:20px;font-weight:700">Manajemen Grup</h2>
+            <p style="color:var(--text-secondary);font-size:13px;margin-top:3px">
+              Tambah grup secara manual atau auto-detect dari akun yang sudah terhubung.
+            </p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="groups-search" placeholder="🔍 Cari grup..." style="width:220px" oninput="renderGroupsTable()">
+            <button class="btn btn-secondary" onclick="loadGroups()">🔄 Refresh</button>
+            <button class="btn btn-primary" onclick="openAddGroup()">➕ Tambah Grup</button>
+          </div>
+        </div>
+        <div class="section-card">
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nama Grup</th>
+                  <th>Group ID</th>
+                  <th>Username</th>
+                  <th>Anggota</th>
+                  <th>Status</th>
+                  <th>Terakhir Kirim</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="groups-tbody">
+                <tr><td colspan="7"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TEMPLATES PAGE ────────────────────────────────── -->
+      <div class="page" id="page-templates">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <div>
+            <h2 style="font-size:20px;font-weight:700">Template Pesan</h2>
+            <p style="color:var(--text-secondary);font-size:13px;margin-top:3px">
+              Gunakan variabel: <code style="color:var(--accent)">{name}</code> <code style="color:var(--accent)">{date}</code> <code style="color:var(--accent)">{promo}</code> <code style="color:var(--accent)">{custom_text}</code>
+            </p>
+          </div>
+          <button class="btn btn-primary" onclick="openAddTemplate()">➕ Buat Template</button>
+        </div>
+        <div class="card-grid" id="templates-grid">
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon"><span class="spinner"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── CAMPAIGNS PAGE ────────────────────────────────── -->
+      <div class="page" id="page-campaigns">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <div>
+            <h2 style="font-size:20px;font-weight:700">Campaign Manager</h2>
+            <p style="color:var(--text-secondary);font-size:13px;margin-top:3px">
+              Buat dan jalankan campaign distribusi pesan ke banyak grup secara terstruktur.
+            </p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" onclick="loadCampaigns()">🔄 Refresh</button>
+            <button class="btn btn-primary" onclick="openAddCampaign()">➕ Buat Campaign</button>
+          </div>
+        </div>
+        <div id="campaigns-list">
+          <div class="empty-state"><span class="spinner"></span></div>
+        </div>
+      </div>
+
+      <!-- ─── LOGS PAGE ─────────────────────────────────────── -->
+      <div class="page" id="page-logs">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <h2 style="font-size:20px;font-weight:700">Log Aktivitas</h2>
+          <button class="btn btn-secondary" onclick="loadLogs()">🔄 Refresh</button>
+        </div>
+
+        <!-- Log Stats -->
+        <div class="stats-grid" style="margin-bottom:20px">
+          <div class="stat-card"><div class="stat-icon blue">📊</div><div><div class="stat-value" id="log-stat-total">0</div><div class="stat-label">Total Log</div></div></div>
+          <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-value" id="log-stat-success">0</div><div class="stat-label">Sukses</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:var(--error-bg)">❌</div><div><div class="stat-value" id="log-stat-failed">0</div><div class="stat-label">Gagal</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:var(--warning-bg)">⏱</div><div><div class="stat-value" id="log-stat-rl">0</div><div class="stat-label">Rate Limited</div></div></div>
+        </div>
+
+        <div class="section-card">
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>Akun</th>
+                  <th>Grup</th>
+                  <th>Status</th>
+                  <th>Pesan Error</th>
+                  <th>Message ID</th>
+                </tr>
+              </thead>
+              <tbody id="logs-tbody">
+                <tr><td colspan="6"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /app -->
+
+<!-- ─── MODALS ──────────────────────────────────────────────────────────── -->
+
+<!-- Modal: Tambah Akun (Login Flow) -->
+<div class="modal-overlay" id="modal-add-account">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Tambah Akun Telegram</div>
+      <button class="modal-close" onclick="closeModal('modal-add-account')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Step Indicator -->
+      <div class="steps-indicator">
+        <div class="step-dot active" id="step-1">1</div>
+        <div class="step-line"></div>
+        <div class="step-dot" id="step-2">2</div>
+        <div class="step-line"></div>
+        <div class="step-dot" id="step-3">3</div>
+      </div>
+
+      <!-- Step 1: Phone -->
+      <div id="login-step-1">
+        <div style="margin-bottom:16px;color:var(--text-secondary);font-size:13px">
+          Masukkan nomor telepon akun Telegram (format internasional, misal: +6281234567890)
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor Telepon</label>
+          <input class="form-input" id="acc-phone" type="tel" placeholder="+6281234567890">
+          <div class="form-hint">Kode OTP akan dikirim ke Telegram akun tersebut</div>
+        </div>
+        <button class="btn btn-primary" id="btn-req-code" onclick="reqCode()" style="width:100%;justify-content:center">
+          Kirim Kode OTP
+        </button>
+      </div>
+
+      <!-- Step 2: OTP -->
+      <div id="login-step-2" style="display:none">
+        <div style="margin-bottom:16px;padding:12px;background:var(--info-bg);border-radius:8px;font-size:13px;color:var(--info)">
+          📱 Buka Telegram di HP dengan nomor <strong id="login-phone-display"></strong> dan cek pesan masuk.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kode OTP</label>
+          <input class="form-input" id="acc-otp" type="text" placeholder="12345" maxlength="6" style="font-size:24px;letter-spacing:8px;text-align:center">
+        </div>
+        <div id="2fa-section" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Password 2FA (jika diaktifkan)</label>
+            <input class="form-input" id="acc-2fa" type="password" placeholder="Password two-factor authentication">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="loginStep=1;document.getElementById('login-step-1').style.display='';document.getElementById('login-step-2').style.display='none';updateLoginStepIndicator()">← Kembali</button>
+          <button class="btn btn-primary" id="btn-verify-otp" onclick="verifyOTP()" style="flex:1;justify-content:center">Verifikasi</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Success -->
+      <div id="login-step-3" style="display:none;text-align:center;padding:20px 0">
+        <div style="font-size:48px;margin-bottom:16px">🎉</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Login Berhasil!</div>
+        <div style="color:var(--text-secondary);font-size:13px">Akun <strong id="login-success-phone"></strong> berhasil ditambahkan.</div>
+        <div style="margin-top:20px;font-size:13px;color:var(--text-muted)">Klik tombol Connect di kartu akun untuk mulai menggunakan akun ini.</div>
+        <button class="btn btn-primary" onclick="closeModal('modal-add-account')" style="margin-top:20px">Selesai</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detect Groups -->
+<div class="modal-overlay" id="modal-detect-groups">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">🔍 Deteksi Grup yang Sudah Di-Join</div>
+      <button class="modal-close" onclick="closeModal('modal-detect-groups')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:12px;font-size:13px;color:var(--text-secondary)" id="detect-count">Mendeteksi...</div>
+      <div class="detect-list" id="detect-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-detect-groups')">Batal</button>
+      <button class="btn btn-primary" onclick="importSelectedGroups()">✅ Import Grup Dipilih</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Tambah Grup Manual -->
+<div class="modal-overlay" id="modal-add-group">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">➕ Tambah Grup Manual</div>
+      <button class="modal-close" onclick="closeModal('modal-add-group')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-add-group" onsubmit="event.preventDefault()">
+        <div class="form-group">
+          <label class="form-label">Telegram Group ID *</label>
+          <input class="form-input" id="grp-id" placeholder="-1001234567890" required>
+          <div class="form-hint">Contoh: -1001234567890 (negatif untuk supergroup)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nama Grup *</label>
+          <input class="form-input" id="grp-title" placeholder="Nama grup" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Username (opsional)</label>
+            <input class="form-input" id="grp-username" placeholder="username_grup">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jumlah Anggota</label>
+            <input class="form-input" id="grp-members" type="number" placeholder="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kategori (opsional)</label>
+          <input class="form-input" id="grp-category" placeholder="Contoh: Jastip, Marketing, Info">
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-group')">Batal</button>
+      <button class="btn btn-primary" onclick="saveGroup()">Simpan Grup</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Template Editor -->
+<div class="modal-overlay" id="modal-add-template">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-template-title">Buat Template Baru</div>
+      <button class="modal-close" onclick="closeModal('modal-add-template')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="template-id-hidden">
+      <form id="form-template" onsubmit="event.preventDefault()">
+        <div class="form-group">
+          <label class="form-label">Nama Template *</label>
+          <input class="form-input" id="tmpl-name" placeholder="Contoh: Promo Jastip Minggu Ini" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Isi Pesan *</label>
+          <textarea class="form-textarea" id="tmpl-content" placeholder="Halo {name}! 👋&#10;&#10;Promo spesial hari ini: {promo}&#10;Info lebih lanjut: {custom_text}&#10;&#10;📅 {date}" oninput="onTemplateContentChange()" style="min-height:180px"></textarea>
+          <div class="form-hint">Variabel: {name} {date} {time} {datetime} {promo} {custom_text} dan lainnya</div>
+        </div>
+
+        <!-- Detected Variables -->
+        <div class="form-group">
+          <label class="form-label">Variabel Terdeteksi</label>
+          <div id="template-vars-preview" style="display:flex;gap:6px;flex-wrap:wrap;min-height:26px">
+            <span style="color:var(--text-muted);font-size:12px">Ketik isi pesan untuk deteksi variabel</span>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="form-group">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <label class="form-label" style="margin:0">Preview Pesan (contoh data)</label>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="previewTemplate()">👁 Preview</button>
+          </div>
+          <div id="preview-box" style="display:none;background:#060a12;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:150px;overflow-y:auto" id="preview-result"></div>
+          <div id="preview-result" style="display:none"></div>
+        </div>
+
+        <!-- Media -->
+        <div class="form-group">
+          <label class="form-label">Media (opsional)</label>
+          <div style="display:flex;gap:8px">
+            <input class="form-input" id="tmpl-media" placeholder="Path file media (diisi otomatis setelah upload)">
+            <label class="btn btn-secondary" style="white-space:nowrap;cursor:pointer">
+              📎 Upload
+              <input type="file" id="media-file" accept="image/*,video/*" style="display:none" onchange="uploadTemplateMedia()">
+            </label>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-template')">Batal</button>
+      <button class="btn btn-primary" onclick="saveTemplate()">💾 Simpan Template</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Buat Campaign -->
+<div class="modal-overlay" id="modal-add-campaign">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-camp-title">Buat Campaign Baru</div>
+      <button class="modal-close" onclick="closeModal('modal-add-campaign')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="camp-id-hidden">
+      <form id="form-campaign" onsubmit="event.preventDefault()">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nama Campaign *</label>
+            <input class="form-input" id="camp-name" placeholder="Contoh: Promo April 2025" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Template Pesan *</label>
+            <select class="form-select" id="camp-template" onchange="renderVarFields()">
+              <option value="">-- Pilih Template --</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Variable Data -->
+        <div id="camp-var-fields" style="margin-bottom:8px">
+          <div style="color:var(--text-muted);font-size:12px">Pilih template untuk mengisi variabel.</div>
+        </div>
+
+        <!-- Group Selection -->
+        <div class="form-group">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <label class="form-label" style="margin:0">Grup Target *</label>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="selectAllGroups()">✓ Pilih Semua</button>
+          </div>
+          <div class="detect-list" id="camp-groups-list" style="max-height:200px;border:1px solid var(--border);border-radius:8px;padding:8px">
+            <div style="color:var(--text-muted);font-size:13px">Memuat grup...</div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div style="background:var(--bg-secondary);border-radius:10px;padding:16px;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text-primary)">⚙️ Pengaturan Distribusi</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Delay Min: <span class="range-display" id="delay-min-val">5</span>s</label>
+              <input type="range" id="camp-delay-min" min="3" max="60" value="5" style="width:100%" oninput="document.getElementById('delay-min-val').textContent=this.value">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Delay Max: <span class="range-display" id="delay-max-val">20</span>s</label>
+              <input type="range" id="camp-delay-max" min="5" max="120" value="20" style="width:100%" oninput="document.getElementById('delay-max-val').textContent=this.value">
+            </div>
+          </div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap">
+            <div class="toggle-wrap">
+              <label class="toggle"><input type="checkbox" id="camp-parallel" checked><span class="toggle-slider"></span></label>
+              <div>
+                <div style="font-size:13px;font-weight:500">Mode Paralel</div>
+                <div style="font-size:11px;color:var(--text-muted)">Semua akun jalan bersamaan</div>
+              </div>
+            </div>
+            <div class="toggle-wrap">
+              <label class="toggle"><input type="checkbox" id="camp-no-dup"><span class="toggle-slider"></span></label>
+              <div>
+                <div style="font-size:13px;font-weight:500">Anti Duplicate</div>
+                <div style="font-size:11px;color:var(--text-muted)">1 grup = 1 akun saja</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-add-campaign')">Batal</button>
+      <button class="btn btn-primary" onclick="saveCampaign()">🚀 Simpan Campaign</button>
+    </div>
+  </div>
+</div>
+
+<script src="/assets/js/app.js"></script>
+</body>
+</html>

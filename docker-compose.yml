@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  tg-auto:
+    build: .
+    container_name: tg-auto-system
+    restart: always                    # Auto-restart jika crash
+    ports:
+      - "8000:8000"
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - ./data:/app/data              # SQLite database persistent
+      - ./sessions:/app/sessions      # Session cache persistent
+      - ./media:/app/media            # Media files persistent
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/auth/login', data=b'{}')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Nginx reverse proxy + SSL termination
+  nginx:
+    image: nginx:alpine
+    container_name: tg-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - tg-auto
+
+  # SSL Certificate (jalankan sekali untuk setup)
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    profiles:
+      - ssl                          # Hanya jalan dengan: docker compose --profile ssl up certbot
