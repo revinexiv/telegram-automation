@@ -716,7 +716,7 @@ function editTemplate(id) {
   const title = document.getElementById('modal-template-title');
   if (title) title.textContent = 'Edit Template';
   
-  onTemplateContentChange(); // Render ulang variabel yang ada di isi pesan
+  onTemplateContentChange(); 
   openModal('modal-add-template');
 }
 
@@ -725,7 +725,6 @@ function previewTemplate() {
   const box = document.getElementById('preview-box');
   if (!content) return toast('Isi pesan masih kosong', 'warning');
   
-  // Dummy data untuk preview
   let previewStr = content
     .replace(/\{name\}/g, 'John Doe')
     .replace(/\{date\}/g, new Date().toLocaleDateString('id-ID'))
@@ -738,7 +737,6 @@ function previewTemplate() {
 
 function uploadTemplateMedia() {
   toast('Fitur upload media siap disambungkan ke backend API', 'info');
-  // Nantinya di sini lu tangkap file dari document.getElementById('media-file').files[0]
 }
 
 // ─── 3. MODAL & FITUR CAMPAIGN ───
@@ -751,17 +749,14 @@ async function openAddCampaign() {
   const title = document.getElementById('modal-camp-title');
   if (title) title.textContent = 'Buat Campaign Baru';
   
-  // Load data grup & template terbaru
   await loadCampaigns(); 
 
-  // Isi Dropdown Template
   const tplSelect = document.getElementById('camp-template');
   if (tplSelect && allTemplates.length > 0) {
     tplSelect.innerHTML = '<option value="">-- Pilih Template --</option>' + 
       allTemplates.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
   }
 
-  // Isi List Grup Target (Checkbox)
   const grpList = document.getElementById('camp-groups-list');
   if (grpList) {
     const activeGroups = allGroups.filter(g => g.is_active);
@@ -786,20 +781,17 @@ function renderVarFields() {
   }
   
   const tpl = allTemplates.find(t => t.id == tplId);
-  // Cek apakah template punya variabel
   if (!tpl || !tpl.variables || tpl.variables.length === 0) {
     container.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Template ini tidak memiliki variabel custom.</div>';
     return;
   }
   
-  // Pisahkan variabel standar (yg otomatis) dan custom
   const customVars = tpl.variables.filter(v => !['name', 'date', 'time'].includes(v));
   if (customVars.length === 0) {
     container.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Variabel standar ({name}, {date}) akan diisi otomatis sistem.</div>';
     return;
   }
   
-  // Render input untuk variabel custom
   container.innerHTML = customVars.map(v => `
     <div class="form-group" style="margin-bottom:8px">
       <label class="form-label" style="font-size:11px">Isi variabel {${v}}</label>
@@ -810,9 +802,7 @@ function renderVarFields() {
 
 function selectAllGroups() {
   const checkboxes = document.querySelectorAll('.camp-grp-cb');
-  // Cek apakah semuanya sudah terceklis?
   const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-  // Jika ya, uncheck semua. Jika tidak, check semua.
   checkboxes.forEach(cb => cb.checked = !allChecked);
 }
 
@@ -827,7 +817,6 @@ async function saveCampaign() {
   
   if (target_groups.length === 0) return toast('Pilih minimal 1 grup target', 'warning');
 
-  // Ambil isi variabel custom
   const variables = {};
   document.querySelectorAll('.camp-var-input').forEach(input => {
      variables[input.dataset.var] = input.value;
