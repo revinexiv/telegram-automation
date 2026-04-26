@@ -1,4 +1,6 @@
 import logging
+import os
+import shutil
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -82,6 +84,34 @@ async def login(body: dict):
         return {"token": f"{ADMIN_USERNAME}:{ADMIN_PASSWORD}", "message": "Login berhasil"}
     raise HTTPException(401, "Username atau password salah")
 
+# ─── Upload Route ─────────────────────────────────────────────────────────────
+import uuid # Tambahkan ini untuk generate nama acak
+import os
+
+# Pastikan folder uploads ada saat aplikasi berjalan
+os.makedirs("./uploads", exist_ok=True)
+
+@app.post("/api/upload")
+async def upload_media(file: UploadFile = File(...)):
+    try:
+        # Ambil ekstensi asli filenya (misal: .jpg, .png, .mp4)
+        ext = os.path.splitext(file.filename)[1]
+        
+        # Bikin nama file baru yang 100% unik dan tanpa spasi
+        safe_filename = f"{uuid.uuid4().hex}{ext}"
+        
+        # Tentukan lokasi penyimpanan file
+        file_location = f"./uploads/{safe_filename}"
+        
+        # Simpan file ke server Railway
+        with open(file_location, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+            
+        # Kembalikan link path agar bisa dibaca sama Frontend
+        return {"media_path": f"/uploads/{safe_filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal upload file: {str(e)}")
+
 
 # ─── Routers ─────────────────────────────────────────────────────────────────
 
@@ -95,6 +125,8 @@ app.include_router(ws.router)
 # ─── Static Files & SPA ──────────────────────────────────────────────────────
 
 import os
+app.mount("/uploads", StaticFiles(directory="./uploads"), name="uploads")
+
 if os.path.exists("./frontend"):
     app.mount("/assets", StaticFiles(directory="./frontend"), name="static")
     

@@ -735,8 +735,31 @@ function previewTemplate() {
   box.style.display = 'block';
 }
 
-function uploadTemplateMedia() {
-  toast('Fitur upload media siap disambungkan ke backend API', 'info');
+async function uploadTemplateMedia() {
+  const fileInput = document.getElementById('media-file');
+  const file = fileInput.files[0];
+  
+  if (!file) return; // Kalau gak jadi milih file, batalin
+
+  // Bikin form data buat ngirim file gambar
+  const formData = new FormData();
+  formData.append('file', file); // 'file' ini harus sesuai dengan yang diminta backend lu
+
+  toast('⏳ Sedang mengupload media...', 'info');
+
+  try {
+    // Panggil API upload (Perhatikan ada argumen 'true' di belakang untuk nandain ini FormData)
+    // GANTI '/api/upload' DENGAN ENDPOINT API BACKEND LU YANG SEBENARNYA
+    const res = await api('POST', '/api/upload', formData, true); 
+    
+    // Asumsi backend lu ngembaliin data dengan format: { media_path: "link-gambar.jpg" }
+    // Masukin path-nya ke kolom input secara otomatis
+    document.getElementById('tmpl-media').value = res.media_path; 
+    
+    toast('✅ Media berhasil diupload!', 'success');
+  } catch(e) {
+    toast('❌ Gagal upload: ' + e.message, 'error');
+  }
 }
 
 // ─── 3. MODAL & FITUR CAMPAIGN ───
