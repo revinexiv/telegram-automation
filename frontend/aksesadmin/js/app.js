@@ -678,3 +678,178 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter' && document.getElementById('login-page').style.display !== 'none') login();
   });
 });
+// =========================================================================
+// ─── FUNGSI TAMBAHAN AGAR SINKRON DENGAN INDEX.HTML ──────────────────────
+// =========================================================================
+
+// ─── 1. MODAL TAMBAH GRUP MANUAL ───
+function openAddGroup() {
+  const form = document.getElementById('form-add-group');
+  if (form) form.reset();
+  openModal('modal-add-group');
+}
+
+// ─── 2. MODAL & FITUR TEMPLATE ───
+function openAddTemplate() {
+  const form = document.getElementById('form-template');
+  if (form) form.reset();
+  document.getElementById('template-id-hidden').value = '';
+  document.getElementById('template-vars-preview').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">Tidak ada variabel</span>';
+  
+  const title = document.getElementById('modal-template-title');
+  if (title) title.textContent = 'Buat Template Baru';
+  
+  const previewBox = document.getElementById('preview-box');
+  if (previewBox) previewBox.style.display = 'none';
+  
+  openModal('modal-add-template');
+}
+
+function editTemplate(id) {
+  const t = allTemplates.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('template-id-hidden').value = t.id;
+  document.getElementById('tmpl-name').value = t.name;
+  document.getElementById('tmpl-content').value = t.content;
+  document.getElementById('tmpl-media').value = t.media_path || '';
+  
+  const title = document.getElementById('modal-template-title');
+  if (title) title.textContent = 'Edit Template';
+  
+  onTemplateContentChange(); // Render ulang variabel yang ada di isi pesan
+  openModal('modal-add-template');
+}
+
+function previewTemplate() {
+  const content = document.getElementById('tmpl-content').value;
+  const box = document.getElementById('preview-box');
+  if (!content) return toast('Isi pesan masih kosong', 'warning');
+  
+  // Dummy data untuk preview
+  let previewStr = content
+    .replace(/\{name\}/g, 'John Doe')
+    .replace(/\{date\}/g, new Date().toLocaleDateString('id-ID'))
+    .replace(/\{promo\}/g, 'Diskon 50%')
+    .replace(/\{custom_text\}/g, 'Teks tambahan contoh');
+    
+  box.textContent = previewStr;
+  box.style.display = 'block';
+}
+
+function uploadTemplateMedia() {
+  toast('Fitur upload media siap disambungkan ke backend API', 'info');
+  // Nantinya di sini lu tangkap file dari document.getElementById('media-file').files[0]
+}
+
+// ─── 3. MODAL & FITUR CAMPAIGN ───
+async function openAddCampaign() {
+  const form = document.getElementById('form-campaign');
+  if (form) form.reset();
+  document.getElementById('camp-id-hidden').value = '';
+  document.getElementById('camp-var-fields').innerHTML = '<div style="color:var(--text-muted);font-size:12px">Pilih template untuk mengisi variabel.</div>';
+  
+  const title = document.getElementById('modal-camp-title');
+  if (title) title.textContent = 'Buat Campaign Baru';
+  
+  // Load data grup & template terbaru
+  await loadCampaigns(); 
+
+  // Isi Dropdown Template
+  const tplSelect = document.getElementById('camp-template');
+  if (tplSelect && allTemplates.length > 0) {
+    tplSelect.innerHTML = '<option value="">-- Pilih Template --</option>' + 
+      allTemplates.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+  }
+
+  // Isi List Grup Target (Checkbox)
+  const grpList = document.getElementById('camp-groups-list');
+  if (grpList) {
+    const activeGroups = allGroups.filter(g => g.is_active);
+    grpList.innerHTML = activeGroups.length > 0 
+      ? activeGroups.map(g => `
+          <div style="display:flex;gap:8px;margin-bottom:4px">
+            <input type="checkbox" class="camp-grp-cb" value="${g.group_id}">
+            <label style="font-size:13px">${g.title}</label>
+          </div>`).join('')
+      : '<div style="color:var(--text-muted);font-size:13px">Tidak ada grup aktif</div>';
+  }
+  openModal('modal-add-campaign');
+}
+
+function renderVarFields() {
+  const tplId = document.getElementById('camp-template').value;
+  const container = document.getElementById('camp-var-fields');
+  
+  if (!tplId) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Pilih template untuk mengisi variabel.</div>';
+    return;
+  }
+  
+  const tpl = allTemplates.find(t => t.id == tplId);
+  // Cek apakah template punya variabel
+  if (!tpl || !tpl.variables || tpl.variables.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Template ini tidak memiliki variabel custom.</div>';
+    return;
+  }
+  
+  // Pisahkan variabel standar (yg otomatis) dan custom
+  const customVars = tpl.variables.filter(v => !['name', 'date', 'time'].includes(v));
+  if (customVars.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Variabel standar ({name}, {date}) akan diisi otomatis sistem.</div>';
+    return;
+  }
+  
+  // Render input untuk variabel custom
+  container.innerHTML = customVars.map(v => `
+    <div class="form-group" style="margin-bottom:8px">
+      <label class="form-label" style="font-size:11px">Isi variabel {${v}}</label>
+      <input type="text" class="form-input camp-var-input" data-var="${v}" placeholder="Teks untuk {${v}}">
+    </div>
+  `).join('');
+}
+
+function selectAllGroups() {
+  const checkboxes = document.querySelectorAll('.camp-grp-cb');
+  // Cek apakah semuanya sudah terceklis?
+  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  // Jika ya, uncheck semua. Jika tidak, check semua.
+  checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+
+async function saveCampaign() {
+  const name = document.getElementById('camp-name').value.trim();
+  const template_id = document.getElementById('camp-template').value;
+  
+  if (!name || !template_id) return toast('Nama dan Template pesan wajib diisi', 'warning');
+  
+  const groupCheckboxes = document.querySelectorAll('.camp-grp-cb:checked');
+  const target_groups = Array.from(groupCheckboxes).map(cb => cb.value);
+  
+  if (target_groups.length === 0) return toast('Pilih minimal 1 grup target', 'warning');
+
+  // Ambil isi variabel custom
+  const variables = {};
+  document.querySelectorAll('.camp-var-input').forEach(input => {
+     variables[input.dataset.var] = input.value;
+  });
+
+  const body = {
+    name: name,
+    template_id: parseInt(template_id),
+    target_groups: target_groups,
+    variables: variables,
+    delay_min: parseInt(document.getElementById('camp-delay-min').value),
+    delay_max: parseInt(document.getElementById('camp-delay-max').value),
+    is_parallel: document.getElementById('camp-parallel').checked,
+    anti_duplicate: document.getElementById('camp-no-dup').checked
+  };
+
+  try {
+    await api('POST', '/api/campaigns', body);
+    toast('Campaign berhasil dibuat!', 'success');
+    closeModal('modal-add-campaign');
+    loadCampaigns();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
