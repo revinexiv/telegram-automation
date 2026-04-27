@@ -722,7 +722,9 @@ function editTemplate(id) {
 
 function previewTemplate() {
   const content = document.getElementById('tmpl-content').value;
+  const mediaPath = document.getElementById('tmpl-media').value; // Ambil path gambar
   const box = document.getElementById('preview-box');
+  
   if (!content) return toast('Isi pesan masih kosong', 'warning');
   
   let previewStr = content
@@ -731,7 +733,19 @@ function previewTemplate() {
     .replace(/\{promo\}/g, 'Diskon 50%')
     .replace(/\{custom_text\}/g, 'Teks tambahan contoh');
     
-  box.textContent = previewStr;
+  // Bersihkan isi box preview sebelumnya
+  box.innerHTML = '';
+  
+  // Jika ada media, tambahkan elemen <img> ke dalam box preview
+  if (mediaPath) {
+    box.innerHTML += `<img src="${mediaPath}" style="max-width:100%; border-radius:8px; margin-bottom:12px; border:1px solid var(--border);">`;
+  }
+  
+  // Tambahkan teks pesan di bawah gambar
+  const textDiv = document.createElement('div');
+  textDiv.textContent = previewStr;
+  box.appendChild(textDiv);
+  
   box.style.display = 'block';
 }
 

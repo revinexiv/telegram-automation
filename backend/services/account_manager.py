@@ -235,9 +235,17 @@ async def send_message_to_group(
         # Kirim pesan
         if media_path and media_path.strip():
             import os
-            if os.path.exists(media_path):
-                msg = await client.send_file(entity, media_path, caption=text)
+            
+            # Koreksi path: ubah '/uploads/xxx.jpg' jadi './uploads/xxx.jpg'
+            actual_path = media_path
+            if actual_path.startswith('/'):
+                actual_path = "." + actual_path
+                
+            if os.path.exists(actual_path):
+                msg = await client.send_file(entity, actual_path, caption=text)
             else:
+                # Kalau beneran masih gak ketemu, kirim teks aja
+                logger.warning(f"Gagal kirim gambar: File tidak ditemukan di {actual_path}")
                 msg = await client.send_message(entity, text)
         else:
             msg = await client.send_message(entity, text)
