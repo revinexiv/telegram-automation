@@ -203,10 +203,30 @@ async def run_campaign(campaign_id: int):
 
         # Load group data
         group_records = []
-        for gid in target_group_ids:
-            grp = await db.get(Group, gid)
-            if grp and grp.is_active:
-                group_records.append(grp)
+        if target_group_ids:
+            # Pastikan formatnya string karena Telegram ID sering ada tanda minus (-)
+            str_gids = [str(gid) for gid in target_group_ids]
+            
+            # Cari grup spesifik berdasarkan kolom Telegram group_id
+            stmt = select(Group).where(Group.group_id.in_(str_gids))
+            res = await db.execute(stmt)
+            found_groups = res.scalars().all()
+            
+            for grp in found_groups:
+                if grp.is_active:
+                    group_records.append(grp)
+                    
+        # Pengaman: Kalau ternyata grupnya gak ketemu / kosong
+        if not group_records:
+            logger.error(f"Campaign {campaign_id}: Tidak ada grup valid yang ditemukan.")
+            campaign.status = "stopped"
+            await db.commit()
+            await _broadcast({
+                "type": "campaign_error", 
+                "campaign_id": campaign_id, 
+                "error": "Gagal mulai: Grup target kosong, tidak valid, atau nonaktif"
+            })
+            return
 
         # Load akun aktif yang terhubung
         connected = account_manager.get_all_connected()
