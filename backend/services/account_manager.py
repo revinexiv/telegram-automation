@@ -201,11 +201,31 @@ async def send_message_to_group(
         return {"success": False, "error": "Akun tidak terhubung"}
 
     try:
-        # Resolve entity
+        # Resolve entity: Auto-prefix -100 untuk Supergroup/Channel
         try:
-            entity = await client.get_entity(int(group_id))
+            # Cek apakah group_id berupa angka (termasuk jika ada minus)
+            if str(group_id).replace('-', '').isdigit():
+                target_id = int(group_id)
+                try:
+                    # Percobaan 1: Cari pakai ID apa adanya
+                    entity = await client.get_entity(target_id)
+                except ValueError:
+                    # Percobaan 2: Kalau gagal, otomatis tambahkan -100 (Format Supergroup)
+                    if not str(target_id).startswith("-100"):
+                        supergroup_id = int(f"-100{str(target_id).lstrip('-')}")
+                        entity = await client.get_entity(supergroup_id)
+                    else:
+                        raise
+            else:
+                # Percobaan 3: Kalau group_id berupa username (misal: @grup_jastip)
+                entity = await client.get_entity(group_id)
+                
         except ValueError:
-            entity = await client.get_entity(group_id)
+            return {"success": False, "error": "Grup tidak dikenali (ID salah atau akun belum join)"}
+        except Exception as e:
+            return {"success": False, "error": f"Resolve Error: {str(e)}"}
+
+        # Typing simulation
 
         # Typing simulation
         if typing_simulation:
